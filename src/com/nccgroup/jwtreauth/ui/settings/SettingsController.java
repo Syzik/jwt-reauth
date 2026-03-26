@@ -13,13 +13,13 @@ limitations under the License.
 
 package com.nccgroup.jwtreauth.ui.settings;
 
-import com.nccgroup.jwtreauth.JWTReauth;
+import com.nccgroup.jwtreauth.TokenProfile;
 
 public class SettingsController {
     private final SettingsViewPanel settingsViewPanel;
 
-    public SettingsController(JWTReauth jwtReauth) {
-        settingsViewPanel = new SettingsViewPanel(jwtReauth);
+    public SettingsController(TokenProfile profile) {
+        settingsViewPanel = new SettingsViewPanel(profile);
     }
 
     public SettingsViewPanel getSettingsViewPanel() {

@@ -16,31 +16,25 @@ package com.nccgroup.jwtreauth;
 import burp.IContextMenuFactory;
 import burp.IContextMenuInvocation;
 import burp.IExtensionHelpers;
-import com.nccgroup.jwtreauth.ui.logging.LogController;
 import com.nccgroup.jwtreauth.ui.scope.ScopeController;
-import javax.validation.constraints.NotNull;
 
 import javax.swing.*;
 import java.util.ArrayList;
 import java.util.List;
 
 public class JWTReauthContextMenuFactory implements IContextMenuFactory {
-    final IExtensionHelpers helpers;
-    final ScopeController scopeController;
-    final TokenListener tokenListener;
-    final LogController logController;
+    private final IExtensionHelpers helpers;
+    private final ProfileManager profileManager;
+    private final ScopeController scopeController;
 
-    public JWTReauthContextMenuFactory(JWTReauth jwtReauth) {
-        helpers = jwtReauth.getCallbacks().getHelpers();
-        scopeController = jwtReauth.getScopeController();
-        tokenListener = jwtReauth.getTokenListener();
-        logController = jwtReauth.getLogController();
+    public JWTReauthContextMenuFactory(IExtensionHelpers helpers, ProfileManager profileManager, ScopeController scopeController) {
+        this.helpers = helpers;
+        this.profileManager = profileManager;
+        this.scopeController = scopeController;
     }
 
     @Override
     public List<JMenuItem> createMenuItems(IContextMenuInvocation invocation) {
-        final List<JMenuItem> menuItems = new ArrayList<>();
-
         switch (invocation.getInvocationContext()) {
             case IContextMenuInvocation.CONTEXT_MESSAGE_EDITOR_REQUEST:
             case IContextMenuInvocation.CONTEXT_MESSAGE_VIEWER_REQUEST:
@@ -49,84 +43,111 @@ public class JWTReauthContextMenuFactory implements IContextMenuFactory {
             case IContextMenuInvocation.CONTEXT_TARGET_SITE_MAP_TABLE:
             case IContextMenuInvocation.CONTEXT_MESSAGE_EDITOR_RESPONSE:
             case IContextMenuInvocation.CONTEXT_MESSAGE_VIEWER_RESPONSE:
-                menuItems.add(createAuthMenuItem(invocation));
-                menuItems.add(createTokenMenuItem(invocation));
-                menuItems.add(createScopeMenuItem(invocation));
                 break;
 
             default:
-                // if not in a valid scope, return null, indicating no menu items are to be added
                 return null;
         }
 
-        return menuItems;
-    }
+        var profiles = profileManager.getProfiles();
+        final List<JMenuItem> menuItems = new ArrayList<>();
 
-    /**
-     * Create a menu item which sends the selected request to the token listener,
-     * and sets the scope components from it.
-     *
-     * @param invocation the invocation context of the menu1 item
-     * @return the created menu item
-     */
-    private @NotNull JMenuItem createScopeMenuItem(IContextMenuInvocation invocation) {
-        // add a menu item for setting the scope URL
-        var item = new JMenuItem("Send to JWT re-auth (add to scope)");
-        item.addActionListener(e -> {
-            var messages = invocation.getSelectedMessages();
+        if (profiles.size() == 1) {
+            // single profile: flat menu items (no sub-menus)
+            var profile = profiles.get(0);
 
-            // add all selected messages
-            for (var request : messages) {
-                var url = helpers.analyzeRequest(request).getUrl();
-
-                // if the exact URL isn't already in the table, add it
-                if (!scopeController.contains(url)) {
-                    scopeController.addToScope(url);
+            var authItem = new JMenuItem("Send to JWT re-auth (set auth request)");
+            authItem.addActionListener(e -> {
+                var messages = invocation.getSelectedMessages();
+                if (messages.length == 1) {
+                    profile.setAuthorizeRequest(messages[0]);
                 }
+            });
+            menuItems.add(authItem);
+
+            var tokenItem = new JMenuItem("Send to JWT re-auth (set auth token)");
+            tokenItem.addActionListener(e -> {
+                var messages = invocation.getSelectedMessages();
+                if (messages.length == 1) {
+                    profile.processAuthResponse(messages[0], true);
+                }
+            });
+            menuItems.add(tokenItem);
+
+            var refreshItem = new JMenuItem("Send to JWT re-auth (set refresh request)");
+            refreshItem.addActionListener(e -> {
+                var messages = invocation.getSelectedMessages();
+                if (messages.length == 1) {
+                    profile.setRefreshRequest(messages[0]);
+                }
+            });
+            menuItems.add(refreshItem);
+
+            var scopeItem = new JMenuItem("Send to JWT re-auth (add to scope)");
+            scopeItem.addActionListener(e -> {
+                var messages = invocation.getSelectedMessages();
+                for (var request : messages) {
+                    var url = helpers.analyzeRequest(request).getUrl();
+                    if (!scopeController.contains(url)) {
+                        scopeController.addToScope(url, profile.getName());
+                    }
+                }
+            });
+            menuItems.add(scopeItem);
+        } else {
+            // multiple profiles: sub-menus
+            var authMenu = new JMenu("JWT re-auth: set auth request");
+            var tokenMenu = new JMenu("JWT re-auth: set auth token");
+            var refreshMenu = new JMenu("JWT re-auth: set refresh request");
+            var scopeMenu = new JMenu("JWT re-auth: add to scope");
+
+            for (var profile : profiles) {
+                var authItem = new JMenuItem(profile.getName());
+                authItem.addActionListener(e -> {
+                    var messages = invocation.getSelectedMessages();
+                    if (messages.length == 1) {
+                        profile.setAuthorizeRequest(messages[0]);
+                    }
+                });
+                authMenu.add(authItem);
+
+                var tokenItem = new JMenuItem(profile.getName());
+                tokenItem.addActionListener(e -> {
+                    var messages = invocation.getSelectedMessages();
+                    if (messages.length == 1) {
+                        profile.processAuthResponse(messages[0], true);
+                    }
+                });
+                tokenMenu.add(tokenItem);
+
+                var refreshItem = new JMenuItem(profile.getName());
+                refreshItem.addActionListener(e -> {
+                    var messages = invocation.getSelectedMessages();
+                    if (messages.length == 1) {
+                        profile.setRefreshRequest(messages[0]);
+                    }
+                });
+                refreshMenu.add(refreshItem);
+
+                var scopeItem = new JMenuItem(profile.getName());
+                scopeItem.addActionListener(e -> {
+                    var messages = invocation.getSelectedMessages();
+                    for (var request : messages) {
+                        var url = helpers.analyzeRequest(request).getUrl();
+                        if (!scopeController.contains(url)) {
+                            scopeController.addToScope(url, profile.getName());
+                        }
+                    }
+                });
+                scopeMenu.add(scopeItem);
             }
-        });
 
-        return item;
-    }
+            menuItems.add(authMenu);
+            menuItems.add(tokenMenu);
+            menuItems.add(refreshMenu);
+            menuItems.add(scopeMenu);
+        }
 
-    /**
-     * Create a menu item which sends the selected request to the token listener,
-     * and sets the auth request components from it.
-     *
-     * @param invocation the invocation context of the menu item
-     * @return the created menu item
-     */
-    private @NotNull JMenuItem createAuthMenuItem(IContextMenuInvocation invocation) {
-        var item = new JMenuItem("Send to JWT re-auth (set auth request)");
-        item.addActionListener(e -> {
-            var messages = invocation.getSelectedMessages();
-
-            if (messages.length == 1) {
-                tokenListener.setAuthorizeRequest(messages[0]);
-            }
-        });
-
-        return item;
-    }
-
-    /**
-     * Create a menu item which sends the selected request to the token listener,
-     * and sets the current token it.
-     *
-     * @param invocation the invocation context of the menu item
-     * @return the created menu item
-     */
-    private @NotNull JMenuItem createTokenMenuItem(IContextMenuInvocation invocation) {
-        // for a response we allow setting the token value
-        var item = new JMenuItem("Send to JWT re-auth (set auth token)");
-        item.addActionListener(e -> {
-            var messages = invocation.getSelectedMessages();
-
-            if (messages.length == 1) {
-                tokenListener.processAuthResponse(messages[0], true);
-            }
-        });
-
-        return item;
+        return menuItems;
     }
 }

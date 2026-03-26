@@ -30,6 +30,8 @@ public class ScopeTable extends JTable {
     private final InScopeFilter scopeFilter;
     private String filterSearch;
 
+    private final JComboBox<String> profileComboBox;
+
     ScopeTable() {
         setModel(new ScopeTableModel());
 
@@ -39,13 +41,19 @@ public class ScopeTable extends JTable {
         columnModel.getColumn(ScopeTableModel.IN_SCOPE_COL).setMaxWidth(50);
         columnModel.getColumn(ScopeTableModel.IS_PREFIX_COL).setPreferredWidth(50);
         columnModel.getColumn(ScopeTableModel.IS_PREFIX_COL).setMaxWidth(50);
+        columnModel.getColumn(ScopeTableModel.PROFILE_COL).setPreferredWidth(120);
+        columnModel.getColumn(ScopeTableModel.PROFILE_COL).setMaxWidth(200);
+
+        // set up the profile combo box editor
+        profileComboBox = new JComboBox<>();
+        columnModel.getColumn(ScopeTableModel.PROFILE_COL).setCellEditor(new DefaultCellEditor(profileComboBox));
 
         sorter = new TableRowSorter<>((ScopeTableModel) getModel());
         sorter.setSortsOnUpdates(true);
         setRowSorter(sorter);
 
         setFillsViewportHeight(true);
-        setAutoResizeMode(JTable.AUTO_RESIZE_LAST_COLUMN);
+        setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
 
         addPopupMenu();
         addEmptyRow();
@@ -61,17 +69,20 @@ public class ScopeTable extends JTable {
         var removeItem = new JMenuItem("Remove");
 
         removeItem.addActionListener(e -> {
-            // sorting rows biggest to smallest means that we don't move
-            // any of the rows we are going to remove in the future
-            // while we are removing previous rows
-            var biggestToSmallestRows = Arrays.stream(getSelectedRows()).boxed().toArray(Integer[]::new);
-            Arrays.sort(biggestToSmallestRows, Collections.reverseOrder());
+            // Convert view indices to model indices, then sort biggest to smallest
+            // so removing earlier rows doesn't shift later ones
+            var modelRows = Arrays.stream(getSelectedRows())
+                    .map(this::convertRowIndexToModel)
+                    .boxed()
+                    .toArray(Integer[]::new);
+            Arrays.sort(modelRows, Collections.reverseOrder());
 
-            for (var row : biggestToSmallestRows) {
+            for (var row : modelRows) {
                 ((ScopeTableModel) getModel()).removeRow(row);
             }
 
             ensureEmptyLastRow();
+            adjustColumnWidths();
         });
 
         var popupMenu = new JPopupMenu();
@@ -114,6 +125,8 @@ public class ScopeTable extends JTable {
                 addEmptyRow();
             }
         }
+
+        adjustColumnWidths();
     }
 
     /**
@@ -134,30 +147,68 @@ public class ScopeTable extends JTable {
     }
 
     synchronized void addEmptyRow() {
-        ((ScopeTableModel) getModel()).addRow(false, false, "");
+        ((ScopeTableModel) getModel()).addRow(false, false, "", "");
     }
 
-    synchronized void addRow(String url) {
+    synchronized void addRow(String url, String profileName) {
         var model = (ScopeTableModel) getModel();
         var rows = model.getRowCount();
 
         if (rows == 0) {
-            // in case the user deletes everything...
-            model.addRow(true, false, url);
+            model.addRow(true, false, url, profileName);
         } else {
             var lastUrl = (String) model.getValueAt(rows - 1, ScopeTableModel.URL_COL);
 
-            // if the last row is blank fill in that row
             if (lastUrl.isBlank()) {
-                model.setRow(rows - 1, true, true, url);
+                model.setRow(rows - 1, true, true, url, profileName);
             } else {
-                // otherwise just add a new row
-                model.addRow(true, true, url);
+                model.addRow(true, true, url, profileName);
             }
         }
 
         // always keep an empty row free at the end
         addEmptyRow();
+        adjustColumnWidths();
+    }
+
+    private void adjustColumnWidths() {
+        SwingUtilities.invokeLater(() -> {
+            var fm = getFontMetrics(getFont());
+            int maxUrlWidth = fm.stringWidth("URL") + 20;
+
+            for (int row = 0; row < getRowCount(); row++) {
+                var val = getModel().getValueAt(convertRowIndexToModel(row), ScopeTableModel.URL_COL);
+                if (val != null) {
+                    int width = fm.stringWidth(val.toString()) + 20;
+                    if (width > maxUrlWidth) maxUrlWidth = width;
+                }
+            }
+
+            var urlCol = getColumnModel().getColumn(ScopeTableModel.URL_COL);
+            urlCol.setPreferredWidth(maxUrlWidth);
+
+            // Profile column fits its content too
+            int maxProfileWidth = fm.stringWidth("Profile") + 20;
+            for (int row = 0; row < getRowCount(); row++) {
+                var val = getModel().getValueAt(convertRowIndexToModel(row), ScopeTableModel.PROFILE_COL);
+                if (val != null) {
+                    int width = fm.stringWidth(val.toString()) + 20;
+                    if (width > maxProfileWidth) maxProfileWidth = width;
+                }
+            }
+
+            var profileCol = getColumnModel().getColumn(ScopeTableModel.PROFILE_COL);
+            profileCol.setPreferredWidth(maxProfileWidth);
+            profileCol.setMaxWidth(Integer.MAX_VALUE);
+        });
+    }
+
+    void updateProfileComboBox(List<String> profileNames) {
+        profileComboBox.removeAllItems();
+        profileComboBox.addItem("");
+        for (String name : profileNames) {
+            profileComboBox.addItem(name);
+        }
     }
 
     void setFilterSearch(String filterSearch) {

@@ -14,6 +14,7 @@ limitations under the License.
 package com.nccgroup.jwtreauth.ui.scope;
 
 import java.net.URL;
+import java.util.List;
 import javax.validation.constraints.NotNull;
 
 public class ScopeController {
@@ -35,15 +36,27 @@ public class ScopeController {
         return scopeViewPanel;
     }
 
-    public void addToScope(@NotNull URL url) {
-        scopeTable.addRow(url.toString());
+    public void addToScope(@NotNull URL url, @NotNull String profileName) {
+        scopeTable.addRow(url.toString(), profileName);
     }
 
-    public boolean inScope(@NotNull URL url) {
-        return scopeTableModel.inScope(url.toString());
+    public boolean inScopeForProfile(@NotNull URL url, @NotNull String profileName) {
+        return scopeTableModel.inScopeForProfile(url.toString(), profileName);
     }
 
     public boolean contains(@NotNull URL url) {
         return scopeTableModel.contains(url.toString());
+    }
+
+    public void removeProfileEntries(String profileName) {
+        scopeTableModel.removeEntriesForProfile(profileName);
+    }
+
+    public void renameProfileEntries(String oldName, String newName) {
+        scopeTableModel.renameProfileEntries(oldName, newName);
+    }
+
+    public void updateProfileComboBox(List<String> profileNames) {
+        scopeTable.updateProfileComboBox(profileNames);
     }
 }

@@ -36,13 +36,16 @@ class LogFilterPanel extends JPanel {
         var filterLabel = new JLabel("Filter: ");
 
         // create the buttons
-        var errorButton = new OnOffButton("Error", TypeFilter.INCLUDE_ERROR_BY_DEFAULT);
+        var blue = new java.awt.Color(0x2196F3);
+        var defaultBg = new javax.swing.JButton().getBackground();
+
+        var errorButton = new OnOffButton("Error", "Error", TypeFilter.INCLUDE_ERROR_BY_DEFAULT, blue, defaultBg);
         errorButton.addStateChangeListener(logTable::setFilterIncludeError);
 
-        var infoButton = new OnOffButton("Info", TypeFilter.INCLUDE_INFO_BY_DEFAULT);
+        var infoButton = new OnOffButton("Info", "Info", TypeFilter.INCLUDE_INFO_BY_DEFAULT, blue, defaultBg);
         infoButton.addStateChangeListener(logTable::setFilterIncludeInfo);
 
-        var debugButton = new OnOffButton("Debug", TypeFilter.INCLUDE_DEBUG_BY_DEFAULT);
+        var debugButton = new OnOffButton("Debug", "Debug", TypeFilter.INCLUDE_DEBUG_BY_DEFAULT, blue, defaultBg);
         debugButton.addStateChangeListener(logTable::setFilterIncludeDebug);
 
         // create a new panel to hold the filter button components

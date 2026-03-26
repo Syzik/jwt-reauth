@@ -13,8 +13,7 @@ limitations under the License.
 
 package com.nccgroup.jwtreauth.ui.state;
 
-import burp.IExtensionStateListener;
-import com.nccgroup.jwtreauth.TokenListener;
+import com.nccgroup.jwtreauth.TokenProfile;
 import com.nccgroup.jwtreauth.ui.base.GridColumnPanel;
 import javax.validation.constraints.NotNull;
 
@@ -27,10 +26,10 @@ import java.awt.event.ActionListener;
 import java.time.Duration;
 import java.time.Instant;
 
-public class TokenListenerStatePanel extends GridColumnPanel implements IExtensionStateListener {
+public class TokenListenerStatePanel extends GridColumnPanel {
     private static final String TIMER_STOPPED_STRING = "00:00:00";
 
-    private final TokenListener tokenListener;
+    private final TokenProfile profile;
 
     private JTextArea tokenArea;
     private JTextArea headerArea;
@@ -40,10 +39,10 @@ public class TokenListenerStatePanel extends GridColumnPanel implements IExtensi
     private Timer tokenTimer;
     private JLabel tokenTimeActiveLabel;
 
-    public TokenListenerStatePanel(TokenListener tokenListener) {
+    public TokenListenerStatePanel(TokenProfile profile) {
         super("Listener State", 2, true, 1);
 
-        this.tokenListener = tokenListener;
+        this.profile = profile;
 
         addComponents();
     }
@@ -54,7 +53,7 @@ public class TokenListenerStatePanel extends GridColumnPanel implements IExtensi
     void addComponents() {
         // create the token row
         var titleLabel = new JLabel("token: ");
-        this.tokenArea = new JTextArea(TokenListener.DEFAULT_TOKEN_MISSING);
+        this.tokenArea = new JTextArea(TokenProfile.DEFAULT_TOKEN_MISSING);
         this.tokenArea.setFont(Font.decode("MONOSPACED"));
         this.tokenArea.setEditable(false);
         this.tokenArea.setLineWrap(true);
@@ -92,7 +91,7 @@ public class TokenListenerStatePanel extends GridColumnPanel implements IExtensi
                             return;
                         }
 
-                        tokenListener.setTokenManual(s);
+                        profile.setTokenManual(s);
                     }
                 }
         );
@@ -104,7 +103,7 @@ public class TokenListenerStatePanel extends GridColumnPanel implements IExtensi
 
         // add a row for the timer
         this.tokenTimeActiveLabel = new JLabel(TIMER_STOPPED_STRING);
-        this.tokenRefreshDuration = Duration.ofSeconds(TokenListener.DEFAULT_AUTH_REQ_DELAY);
+        this.tokenRefreshDuration = Duration.ofSeconds(TokenProfile.DEFAULT_AUTH_REQ_DELAY);
         this.tokenTimer = new Timer(500, _event -> {
             var now = Instant.now();
             var timeActive = Duration.between(this.tokenTimeActivated, now);
@@ -120,9 +119,9 @@ public class TokenListenerStatePanel extends GridColumnPanel implements IExtensi
 
             // attempt to refresh the token if is greater than the refresh duration
             // and it wasn't set manually
-            if (!tokenListener.isTokenSetManually() && !tokenRefreshScheduled && timeActive.compareTo(tokenRefreshDuration) >= 0) {
+            if (!profile.isTokenSetManually() && !tokenRefreshScheduled && timeActive.compareTo(tokenRefreshDuration) >= 0) {
                 // schedule a token refresh
-                tokenListener.scheduleTokenRefresh();
+                profile.scheduleTokenRefresh();
                 tokenRefreshScheduled = true;
             }
         });
@@ -132,7 +131,7 @@ public class TokenListenerStatePanel extends GridColumnPanel implements IExtensi
         // create the header row
         this.headerArea = addRowWithTextAreaAndButton(
                 "header: ",
-                TokenListener.DEFAULT_HEADER_MISSING,
+                TokenProfile.DEFAULT_HEADER_MISSING,
                 "Copy header",
                 _event -> {
                     Clipboard clp = Toolkit.getDefaultToolkit().getSystemClipboard();
@@ -151,10 +150,10 @@ public class TokenListenerStatePanel extends GridColumnPanel implements IExtensi
         this.tokenArea.setText(text);
 
         // if we aren't listening then don't start the timer
-        var isListening = tokenListener.isListening();
+        var isListening = profile.isListening();
 
         // we should stop the timer if the message is the token missing message
-        var startTimer = !text.equals(TokenListener.DEFAULT_TOKEN_MISSING);
+        var startTimer = !text.equals(TokenProfile.DEFAULT_TOKEN_MISSING);
         if (startTimer && isListening) {
             tokenTimeActivated = Instant.now();
             tokenRefreshScheduled = false;
@@ -213,10 +212,5 @@ public class TokenListenerStatePanel extends GridColumnPanel implements IExtensi
         addRow(titleLabel, new JPanel(), textArea, button);
 
         return textArea;
-    }
-
-    @Override
-    public void extensionUnloaded() {
-        stopTimer();
     }
 }

@@ -24,8 +24,9 @@ import java.awt.*;
  * sufficient.
  */
 public class StatusLabel extends JLabel {
-    private static final Color DEFAULT_OK_COLOR = new Color(0xB0FF57);
-    private static final Color DEFAULT_ERROR_COLOR = new Color(0xFF7961);
+    private static final Color DEFAULT_OK_COLOR = new Color(0x2E7D32);
+    private static final Color DEFAULT_ERROR_COLOR = new Color(0xC62828);
+    private static final Color TEXT_COLOR = Color.WHITE;
 
     public enum Status {
         OK,
@@ -49,6 +50,7 @@ public class StatusLabel extends JLabel {
 
         // this is necessary so the background actually shows
         setOpaque(true);
+        setForeground(TEXT_COLOR);
         setPreferredSize(new Dimension(50, 0));
 
         this.okColour = okColour;

@@ -19,9 +19,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class OnOffButton extends JButton {
-    private final static Color DEFAULT_BG_COLOR = new Color(0x2196F3);
-    private final Color bgColor;
-    private final Color origColor;
+    private final static Color DEFAULT_ON_COLOR = new Color(0x2E7D32);
+    private final static Color DEFAULT_OFF_COLOR = new Color(0xC62828);
+    private final Color onColor;
+    private final Color offColor;
     private final String onText;
     private final String offText;
     private final List<StateChangeListener> stateChangeListeners;
@@ -35,7 +36,7 @@ public class OnOffButton extends JButton {
      * @param startsOn whether the button should start in the "on" or "off" state
      */
     public OnOffButton(String text, boolean startsOn) {
-        this(text, text, startsOn, DEFAULT_BG_COLOR);
+        this(text, text, startsOn, DEFAULT_ON_COLOR, DEFAULT_OFF_COLOR);
     }
 
     /**
@@ -46,7 +47,7 @@ public class OnOffButton extends JButton {
      * @param startsOn whether the button should start in the "on" or "off" state
      */
     public OnOffButton(String onText, String offText, boolean startsOn) {
-        this(onText, offText, startsOn, DEFAULT_BG_COLOR);
+        this(onText, offText, startsOn, DEFAULT_ON_COLOR, DEFAULT_OFF_COLOR);
     }
 
     /**
@@ -57,19 +58,17 @@ public class OnOffButton extends JButton {
      * @param startsOn whether the button should start in the "on" or "off" state
      * @param bgColor  the background colour for when the button is in the "on" state
      */
-    public OnOffButton(String onText, String offText, boolean startsOn, Color bgColor) {
+    public OnOffButton(String onText, String offText, boolean startsOn, Color onColor, Color offColor) {
         super(startsOn ? onText : offText);
 
-        this.bgColor = bgColor;
-        this.origColor = getBackground();
+        this.onColor = onColor;
+        this.offColor = offColor;
         this.onText = onText;
         this.offText = offText;
         this.state = startsOn;
         this.stateChangeListeners = new ArrayList<>();
 
-        if (startsOn) {
-            updateGUI();
-        }
+        updateGUI();
 
         addActionListener(e -> {
             // every time the button is pressed flip the state and update the background
@@ -108,10 +107,14 @@ public class OnOffButton extends JButton {
      */
     private void updateGUI() {
         if (state) {
-            setBackground(this.bgColor);
+            setBackground(this.onColor);
+            setForeground(Color.WHITE);
             setText(this.onText);
         } else {
-            setBackground(this.origColor);
+            setBackground(this.offColor);
+            // Use white text on dark backgrounds, default text on light backgrounds
+            var brightness = (offColor.getRed() + offColor.getGreen() + offColor.getBlue()) / 3;
+            setForeground(brightness < 128 ? Color.WHITE : UIManager.getColor("Button.foreground"));
             setText(this.offText);
         }
     }
